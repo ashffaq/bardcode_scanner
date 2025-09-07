@@ -32,7 +32,7 @@ class NfcPlatformService {
         'Error starting NFC session: $e',
         name: 'NfcPlatformService',
       );
-      throw e;
+      rethrow;
     }
   }
 
@@ -45,7 +45,7 @@ class NfcPlatformService {
         'Error stopping NFC session: $e',
         name: 'NfcPlatformService',
       );
-      throw e;
+      rethrow;
     }
   }
 }

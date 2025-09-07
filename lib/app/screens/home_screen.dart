@@ -1,13 +1,15 @@
+// lib/app/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import '../providers/scanning_state_provider.dart';
-import '../blocs/scanner/scanner_bloc.dart';
 import '../blocs/settings/settings_bloc.dart';
 import '../widgets/scan_button.dart';
-import '../widgets/nfc_button.dart';
 import '../widgets/scans_list.dart';
 import 'package:go_router/go_router.dart';
+
+// Import the new full screen scanner (same folder -> relative import)
+import 'full_screen_scanner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -93,25 +95,58 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_isExpanded)
                         SizedBox(
                           height: 260,
-                          child: Consumer<ScanningStateProvider>(
-                            builder: (context, scanningState, _) {
-                              final currentMode = scanningState.currentMode;
+                          child: Row(
+                            children: [
+                              // First card: Sales Invoice -> opens full screen scanner
+                              Expanded(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () async {
+                                    // open full screen scanner
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                        const FullScreenScanner(title: 'Sales Invoice'),
+                                      ),
+                                    );
 
-                              return Row(
-                                children: [
-                                  if (currentMode == ScanningMode.none ||
-                                      currentMode == ScanningMode.qr)
-                                    Expanded(child: const ScanButton()),
-                                  if (currentMode == ScanningMode.qr)
-                                    const SizedBox.shrink()
-                                  else if (currentMode == ScanningMode.none)
-                                    const SizedBox(width: 16),
-                                  if (currentMode == ScanningMode.none ||
-                                      currentMode == ScanningMode.nfc)
-                                    Expanded(child: const NfcButton()),
-                                ],
-                              );
-                            },
+                                    // Optional: after returning from scanner, you can inspect
+                                    // your provider or bloc for the latest scanned value.
+                                    // Replace `lastScanValue` with the real property name
+                                    // that your ScanningStateProvider exposes (if any).
+                                    final provider = Provider.of<ScanningStateProvider>(context, listen: false);
+                                    // TODO: change `.lastScanValue` to your provider's property:
+                                    // final scanned = provider.lastScanValue;
+                                    // if (scanned != null) { show snackbar or handle it }
+                                  },
+                                  child: const ScanButton(),
+                                ),
+                              ),
+
+                              const SizedBox(width: 16),
+
+                              // Second card: Delivery Note -> same full screen scanner for now
+                              Expanded(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                        const FullScreenScanner(title: 'Delivery Note'),
+                                      ),
+                                    );
+
+                                    // same optional provider check as above
+                                    final provider = Provider.of<ScanningStateProvider>(context, listen: false);
+                                    // TODO: check provider for the latest scanned value here if needed
+                                  },
+                                  child: const ScanButton(),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                     ],

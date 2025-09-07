@@ -58,44 +58,62 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
     on<DeleteAllScans>(_onDeleteAllScans);
   }
 
+  // REPLACE the existing _onScanCode method with this one.
+
+// REPLACE the existing _onScanCode method with this DEFINITIVE version.
+
   Future<void> _onScanCode(ScanCode event, Emitter<ScannerState> emit) async {
     emit(ScannerLoading());
     try {
       final webhookUrl = _settingsBloc.state.webhookUrl;
-      final webhookHeaders = Map<String, String>.from(
-        _settingsBloc.state.webhookHeaders,
-      );
 
-      // Add the Firebase token if it's not already in the headers
-      // if (!webhookHeaders.containsKey('X-Firebase-Token')) {
-      //   final token = "MyFBToken";
-      //   if (token != null && token.isNotEmpty) {
-      //     webhookHeaders['X-Firebase-Token'] = token;
-      //   }
-      // }
+      // Using the keys you provided.
+      const String apiKey = '34542297d5fb715';
+      const String apiSecret = '6e67f65533a29ce';
 
+      // Headers for Frappe.
+      final Map<String, String> frappeHeaders = {
+        'Authorization': 'token $apiKey:$apiSecret',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
+
+      // The data we want to send, as a Map.
+      final Map<String, String> bodyMap = {
+        'doc_name': event.code,
+      };
+
+      // --- THIS IS THE CRUCIAL FIX ---
+      // Manually encode the Map into a String in the format "key1=value1&key2=value2".
+      // This creates a String like "doc_name=SI-00123".
+      // This is the STRING the http.post function needs.
+      final String encodedBody = bodyMap.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+
+      // Make the POST request.
       final response = await http.post(
         Uri.parse(webhookUrl),
-        headers: webhookHeaders,
-        body: jsonEncode({'code': event.code}),
+        headers: frappeHeaders,
+        body: encodedBody, // We are now correctly passing a STRING.
       );
 
-      if (response.statusCode == 200) {
+      // --- The rest of the logic remains the same ---
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final responseData = jsonDecode(utf8.decode(response.bodyBytes));
+
         final scan = ScanResult(
-          code: responseData['code'],
-          codeValue: responseData['codevalue'],
+          code: event.code,
+          codeValue: responseData['message'],
           timestamp: DateTime.now(),
         );
         await _db.create(scan);
         final scans = await _db.getAllScans();
         emit(ScannerSuccess(scans));
       } else {
-        // Server error, save locally like network error
-        emit(ScannerError('Server error: ${response.statusCode}'));
+        emit(ScannerError('Server error: ${response.statusCode} - ${response.body}'));
         final scan = ScanResult(
           code: event.code,
-          codeValue: '',
+          codeValue: 'Failed: ${response.statusCode}',
           timestamp: DateTime.now(),
         );
         await _db.create(scan);
@@ -104,11 +122,10 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
         emit(ScannerSuccess(scans));
       }
     } catch (e) {
-      // network error, save locally
       emit(ScannerError(e.toString()));
       final scan = ScanResult(
         code: event.code,
-        codeValue: '',
+        codeValue: 'Network Error',
         timestamp: DateTime.now(),
       );
       await _db.create(scan);
@@ -117,6 +134,8 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
       emit(ScannerSuccess(scans));
     }
   }
+
+
 
   Future<void> _onLoadScans(LoadScans event, Emitter<ScannerState> emit) async {
     emit(ScannerLoading());

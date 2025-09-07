@@ -159,7 +159,7 @@ class SettingsScreen extends StatelessWidget {
                               ),
                             ),
                           )
-                          .toList(),
+                          ,
                     ],
                   ),
                 ),

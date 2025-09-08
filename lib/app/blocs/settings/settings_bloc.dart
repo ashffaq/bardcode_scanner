@@ -52,6 +52,13 @@ class RemoveWebhookHeader extends SettingsEvent {
 
 class ToggleClipboard extends SettingsEvent {}
 
+
+class SaveFrappeCredentials extends SettingsEvent {
+  final String apiKey;
+  final String apiSecret;
+  SaveFrappeCredentials(this.apiKey, this.apiSecret);
+}
+
 // State
 class SettingsState {
   final String webhookUrl;
@@ -63,6 +70,8 @@ class SettingsState {
   final double scanDelay;
   final bool beepEnabled;
   final bool copyToClipboard;
+  final String apiKey;
+  final String apiSecret;
 
   SettingsState({
     this.webhookUrl = 'https://n8n.grapph.com/webhook/allcoderelay',
@@ -74,6 +83,8 @@ class SettingsState {
     this.scanDelay = 2.0,
     this.beepEnabled = true,
     this.copyToClipboard = false,
+    this.apiKey = '',
+    this.apiSecret = '',
   });
 
   SettingsState copyWith({
@@ -86,6 +97,8 @@ class SettingsState {
     double? scanDelay,
     bool? beepEnabled,
     bool? copyToClipboard,
+    String? apiKey,
+    String? apiSecret,
   }) {
     return SettingsState(
       webhookUrl: webhookUrl ?? this.webhookUrl,
@@ -97,6 +110,8 @@ class SettingsState {
       scanDelay: scanDelay ?? this.scanDelay,
       beepEnabled: beepEnabled ?? this.beepEnabled,
       copyToClipboard: copyToClipboard ?? this.copyToClipboard,
+      apiKey: apiKey ?? this.apiKey,
+      apiSecret: apiSecret ?? this.apiSecret,
     );
   }
 }
@@ -117,6 +132,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<UpdateScanDelay>(_onUpdateScanDelay);
     on<ToggleBeep>(_onToggleBeep);
     on<ToggleClipboard>(_onToggleClipboard);
+    on<SaveFrappeCredentials>(_onSaveFrappeCredentials);
 
     // Load settings when bloc is created
     add(LoadSettings());
@@ -139,6 +155,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       final scanDelay = await _storage.read(key: 'scan_delay');
       final beepEnabled = await _storage.read(key: 'beep_enabled');
       final copyToClipboard = await _storage.read(key: 'copy_to_clipboard');
+      final apiKey = await _storage.read(key: 'frappe_api_key');
+      final apiSecret = await _storage.read(key: 'frappe_api_secret');
 
       // Parse headers from JSON
       Map<String, String> headers = {'Content-Type': 'application/json'};
@@ -165,6 +183,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
           beepEnabled: beepEnabled == null ? true : beepEnabled == 'true',
           copyToClipboard: copyToClipboard == 'true',
           isLoading: false,
+          apiKey: apiKey ?? '',
+          apiSecret: apiSecret ?? '',
         ),
       );
     } catch (e) {
@@ -358,6 +378,19 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         value: (!state.copyToClipboard).toString(),
       );
       emit(state.copyWith(copyToClipboard: !state.copyToClipboard));
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  Future<void> _onSaveFrappeCredentials(
+      SaveFrappeCredentials event,
+      Emitter<SettingsState> emit,
+      ) async {
+    try {
+      await _storage.write(key: 'frappe_api_key', value: event.apiKey);
+      await _storage.write(key: 'frappe_api_secret', value: event.apiSecret);
+      emit(state.copyWith(apiKey: event.apiKey, apiSecret: event.apiSecret));
     } catch (e) {
       // Handle error
     }

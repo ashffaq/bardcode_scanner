@@ -58,52 +58,58 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
     on<DeleteAllScans>(_onDeleteAllScans);
   }
 
-  // REPLACE the existing _onScanCode method with this one.
-
-// REPLACE the existing _onScanCode method with this DEFINITIVE version.
 
   Future<void> _onScanCode(ScanCode event, Emitter<ScannerState> emit) async {
     emit(ScannerLoading());
     try {
-      final webhookUrl = _settingsBloc.state.webhookUrl;
+      // --- STEP 1: Get all required values from the Settings Bloc ---
+      final settings = _settingsBloc.state;
+      final webhookUrl = settings.webhookUrl;
+      final apiKey = settings.apiKey;
+      final apiSecret = settings.apiSecret;
 
-      // Using the keys you provided.
-      const String apiKey = '34542297d5fb715';
-      const String apiSecret = '6e67f65533a29ce';
+      // --- STEP 2: Add a check to ensure keys are not empty ---
+      if (apiKey.isEmpty || apiSecret.isEmpty) {
+        emit(ScannerError('API Key and Secret must be set in settings.'));
+        // Create a local scan result to show the user what's wrong
+        final scan = ScanResult(
+          code: event.code,
+          codeValue: 'Configuration Error: API Key or Secret is missing.',
+          timestamp: DateTime.now(),
+        );
+        await _db.create(scan);
+        final scans = await _db.getAllScans();
+        emit(ScannerSuccess(scans));
+        return; // Stop execution
+      }
 
-      // Headers for Frappe.
+      // --- STEP 3: The rest of the code is the same, just using the variables from settings ---
       final Map<String, String> frappeHeaders = {
         'Authorization': 'token $apiKey:$apiSecret',
         'Content-Type': 'application/x-www-form-urlencoded',
       };
 
-      // The data we want to send, as a Map.
       final Map<String, String> bodyMap = {
         'doc_name': event.code,
       };
 
-      // --- THIS IS THE CRUCIAL FIX ---
-      // Manually encode the Map into a String in the format "key1=value1&key2=value2".
-      // This creates a String like "doc_name=SI-00123".
-      // This is the STRING the http.post function needs.
       final String encodedBody = bodyMap.entries
           .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
           .join('&');
 
-      // Make the POST request.
       final response = await http.post(
         Uri.parse(webhookUrl),
         headers: frappeHeaders,
-        body: encodedBody, // We are now correctly passing a STRING.
+        body: encodedBody,
       );
 
-      // --- The rest of the logic remains the same ---
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final responseData = jsonDecode(utf8.decode(response.bodyBytes));
+        final String messageFromServer = responseData['message']['message'];
 
         final scan = ScanResult(
           code: event.code,
-          codeValue: responseData['message'],
+          codeValue: messageFromServer,
           timestamp: DateTime.now(),
         );
         await _db.create(scan);
@@ -134,8 +140,6 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
       emit(ScannerSuccess(scans));
     }
   }
-
-
 
   Future<void> _onLoadScans(LoadScans event, Emitter<ScannerState> emit) async {
     emit(ScannerLoading());

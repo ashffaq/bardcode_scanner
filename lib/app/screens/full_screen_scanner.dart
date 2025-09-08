@@ -18,9 +18,9 @@ class FullScreenScanner extends StatefulWidget {
   final String title;
 
   const FullScreenScanner({
-    Key? key,
+    super.key,
     this.title = 'Default Scanner',
-  }) : super(key: key);
+  });
 
   @override
   State<FullScreenScanner> createState() => _FullScreenScannerState();

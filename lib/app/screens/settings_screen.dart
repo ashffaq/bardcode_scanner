@@ -1,11 +1,90 @@
+// lib/app/screens/settings_screen.dart
+// --- START OF COMPLETE AND CORRECTED FILE CODE ---
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/settings/settings_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // --- Controllers for our text fields ---
+  late final TextEditingController _apiKeyController;
+  late final TextEditingController _apiSecretController;
+
+  // --- FocusNodes to detect when the user taps away ---
+  late final FocusNode _apiKeyFocusNode;
+  late final FocusNode _apiSecretFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize controllers with the current state from the Bloc
+    final currentState = context.read<SettingsBloc>().state;
+    _apiKeyController = TextEditingController(text: currentState.apiKey);
+    _apiSecretController = TextEditingController(text: currentState.apiSecret);
+
+    // --- FIX IS HERE ---
+    // Initialize FocusNodes here, in initState, not in the build method.
+    _apiKeyFocusNode = FocusNode();
+    _apiSecretFocusNode = FocusNode();
+
+    // Add listeners to save when the field loses focus
+    _apiKeyFocusNode.addListener(_onApiKeyFocusChange);
+    _apiSecretFocusNode.addListener(_onApiSecretFocusChange);
+  }
+
+  @override
+  void dispose() {
+    // IMPORTANT: Clean up controllers AND focus nodes to prevent memory leaks
+    _apiKeyFocusNode.removeListener(_onApiKeyFocusChange);
+    _apiSecretFocusNode.removeListener(_onApiSecretFocusChange);
+    _apiKeyController.dispose();
+    _apiSecretController.dispose();
+    _apiKeyFocusNode.dispose();
+    _apiSecretFocusNode.dispose();
+    super.dispose();
+  }
+
+  // This function is called when the API Key field loses focus
+  void _onApiKeyFocusChange() {
+    // If the field no longer has focus AND the text has changed...
+    if (!_apiKeyFocusNode.hasFocus && _apiKeyController.text != context.read<SettingsBloc>().state.apiKey) {
+      context.read<SettingsBloc>().add(
+        SaveFrappeCredentials(
+          _apiKeyController.text,
+          _apiSecretController.text, // Use the other controller's current text
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('API Key Saved'), duration: Duration(seconds: 2)),
+      );
+    }
+  }
+
+  // This function is called when the API Secret field loses focus
+  void _onApiSecretFocusChange() {
+    // If the field no longer has focus AND the text has changed...
+    if (!_apiSecretFocusNode.hasFocus && _apiSecretController.text != context.read<SettingsBloc>().state.apiSecret) {
+      context.read<SettingsBloc>().add(
+        SaveFrappeCredentials(
+          _apiKeyController.text, // Use the other controller's current text
+          _apiSecretController.text,
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('API Secret Saved'), duration: Duration(seconds: 2)),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,327 +96,264 @@ class SettingsScreen extends StatelessWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: BlocBuilder<SettingsBloc, SettingsState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+      body: BlocListener<SettingsBloc, SettingsState>(
+        listener: (context, state) {
+          // This ensures if settings are changed from another source, our fields update.
+          if (_apiKeyController.text != state.apiKey) {
+            _apiKeyController.text = state.apiKey;
           }
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Webhook Settings',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Webhook Title',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        initialValue: state.webhookTitle,
-                        style: TextStyle(
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                        decoration: InputDecoration(
-                          border: const OutlineInputBorder(),
-                          hintText: 'Enter webhook title',
-                          hintStyle: TextStyle(
-                            color: CupertinoColors.secondaryLabel.resolveFrom(
-                              context,
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          context.read<SettingsBloc>().add(
-                            UpdateWebhookTitle(value),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Webhook URL',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        initialValue: state.webhookUrl,
-                        style: TextStyle(
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                        decoration: InputDecoration(
-                          border: const OutlineInputBorder(),
-                          hintText: 'Enter webhook URL',
-                          hintStyle: TextStyle(
-                            color: CupertinoColors.secondaryLabel.resolveFrom(
-                              context,
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          context.read<SettingsBloc>().add(
-                            UpdateWebhookUrl(value),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Custom Headers',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: CupertinoColors.label.resolveFrom(context),
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => _showAddHeaderDialog(context),
-                            child: const Text('Add Header'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...state.webhookHeaders.entries
-                          .map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      entry.key,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: CupertinoColors.label
-                                            .resolveFrom(context),
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      entry.value,
-                                      style: TextStyle(
-                                        color: CupertinoColors.label
-                                            .resolveFrom(context),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete,
-                                      color: CupertinoColors.destructiveRed
-                                          .resolveFrom(context),
-                                    ),
-                                    onPressed: () {
-                                      context.read<SettingsBloc>().add(
-                                        RemoveWebhookHeader(entry.key),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          ,
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: SwitchListTile(
-                  title: Text(
-                    'Dark Mode',
-                    style: TextStyle(
-                      color: CupertinoColors.label.resolveFrom(context),
-                    ),
-                  ),
-                  value: state.isDarkMode,
-                  onChanged: (_) {
-                    context.read<SettingsBloc>().add(ToggleDarkMode());
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: SwitchListTile(
-                  title: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Continuous Scanning',
-                        style: TextStyle(
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
-                      if (state.isContinuousScanning)
-                        Slider(
-                          value: state.scanDelay.toDouble(),
-                          min: 0.5,
-                          max: 5.0,
-                          divisions: 9,
-                          label: '${state.scanDelay}s',
-                          onChanged: (value) {
-                            context.read<SettingsBloc>().add(
-                              UpdateScanDelay(value.toDouble()),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                  subtitle: Text(
-                    'Keep scanner open after successful scan',
-                    style: TextStyle(
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
-                    ),
-                  ),
-                  value: state.isContinuousScanning,
-                  onChanged: (_) {
-                    context.read<SettingsBloc>().add(
-                      ToggleContinuousScanning(),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: SwitchListTile(
-                  title: Text(
-                    'Beep on Scan',
-                    style: TextStyle(
-                      color: CupertinoColors.label.resolveFrom(context),
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Play a sound when a code is scanned',
-                    style: TextStyle(
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
-                    ),
-                  ),
-                  value: state.beepEnabled,
-                  onChanged: (_) {
-                    context.read<SettingsBloc>().add(ToggleBeep());
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: SwitchListTile(
-                  title: Text(
-                    'Copy to Clipboard',
-                    style: TextStyle(
-                      color: CupertinoColors.label.resolveFrom(context),
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Automatically copy scanned codes to clipboard',
-                    style: TextStyle(
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
-                    ),
-                  ),
-                  value: state.copyToClipboard,
-                  onChanged: (_) {
-                    context.read<SettingsBloc>().add(ToggleClipboard());
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: ListTile(
-                  title: Text(
-                    'About',
-                    style: TextStyle(
-                      color: CupertinoColors.label.resolveFrom(context),
-                    ),
-                  ),
-                  trailing: Icon(
-                    Icons.arrow_forward_ios,
-                    color: CupertinoColors.label.resolveFrom(context),
-                  ),
-                  onTap: () => context.go('/about'),
-                ),
-              ),
-            ],
-          );
+          if (_apiSecretController.text != state.apiSecret) {
+            _apiSecretController.text = state.apiSecret;
+          }
         },
+        child: BlocBuilder<SettingsBloc, SettingsState>(
+          builder: (context, state) {
+            if (state.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // --- Webhook Settings Card (Unchanged) ---
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Webhook Settings',
+                              style: TextStyle(fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: CupertinoColors.label.resolveFrom(context)),
+                            ),
+                            const SizedBox(height: 16),
+                            Text('Webhook Title', style: TextStyle(
+                                fontSize: 16, color: CupertinoColors.label.resolveFrom(context))),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              initialValue: state.webhookTitle,
+                              onChanged: (value) =>
+                                  context.read<SettingsBloc>().add(UpdateWebhookTitle(value)),
+                              decoration: InputDecoration(border: const OutlineInputBorder(),
+                                  hintText: 'Enter webhook title'),
+                            ),
+                            const SizedBox(height: 16),
+                            Text('Webhook URL', style: TextStyle(
+                                fontSize: 16, color: CupertinoColors.label.resolveFrom(context))),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              initialValue: state.webhookUrl,
+                              onChanged: (value) =>
+                                  context.read<SettingsBloc>().add(UpdateWebhookUrl(value)),
+                              decoration: InputDecoration(border: const OutlineInputBorder(),
+                                  hintText: 'Enter webhook URL'),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Custom Headers',
+                                  style: TextStyle(fontSize: 16,
+                                      color: CupertinoColors.label.resolveFrom(context)),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => _showAddHeaderDialog(context),
+                                  child: const Text('Add Header'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...state.webhookHeaders.entries.map(
+                                  (entry) =>
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: Row(
+                                      children: [
+                                        Expanded(flex: 2,
+                                            child: Text(entry.key, style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: CupertinoColors.label.resolveFrom(
+                                                    context)))),
+                                        Expanded(flex: 3,
+                                            child: Text(entry.value, style: TextStyle(
+                                                color: CupertinoColors.label.resolveFrom(
+                                                    context)))),
+                                        IconButton(
+                                          icon: Icon(Icons.delete,
+                                              color: CupertinoColors.destructiveRed.resolveFrom(
+                                                  context)),
+                                          onPressed: () =>
+                                              context.read<SettingsBloc>().add(
+                                                  RemoveWebhookHeader(entry.key)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // --- Frappe Authentication Card (Definitive Version) ---
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Frappe Authentication', style: TextStyle(fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: CupertinoColors.label.resolveFrom(context))),
+                            const SizedBox(height: 16),
+                            Text('API Key', style: TextStyle(
+                                fontSize: 16, color: CupertinoColors.label.resolveFrom(context))),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _apiKeyController,
+                              focusNode: _apiKeyFocusNode, // Assign the focus node
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                  border: OutlineInputBorder(), hintText: 'Enter your API Key'),
+                            ),
+                            const SizedBox(height: 16),
+                            Text('API Secret', style: TextStyle(
+                                fontSize: 16, color: CupertinoColors.label.resolveFrom(context))),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _apiSecretController,
+                              focusNode: _apiSecretFocusNode, // Assign the focus node
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                  border: OutlineInputBorder(), hintText: 'Enter your API Secret'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // --- Other Settings Cards (Unchanged) ---
+                    const SizedBox(height: 16),
+                    Card(
+                      child: SwitchListTile(
+                        title: Text('Dark Mode', style: TextStyle(
+                            color: CupertinoColors.label.resolveFrom(context))),
+                        value: state.isDarkMode,
+                        onChanged: (_) => context.read<SettingsBloc>().add(ToggleDarkMode()),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: SwitchListTile(
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Continuous Scanning', style: TextStyle(
+                                color: CupertinoColors.label.resolveFrom(context))),
+                            if (state.isContinuousScanning)
+                              Slider(
+                                value: state.scanDelay,
+                                min: 0.5,
+                                max: 5.0,
+                                divisions: 9,
+                                label: '${state.scanDelay.toStringAsFixed(1)}s',
+                                onChanged: (value) =>
+                                    context.read<SettingsBloc>().add(UpdateScanDelay(value)),
+                              ),
+                          ],
+                        ),
+                        subtitle: Text('Keep scanner open after successful scan', style: TextStyle(
+                            color: CupertinoColors.secondaryLabel.resolveFrom(context))),
+                        value: state.isContinuousScanning,
+                        onChanged: (_) =>
+                            context.read<SettingsBloc>().add(ToggleContinuousScanning()),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: SwitchListTile(
+                        title: Text('Beep on Scan', style: TextStyle(
+                            color: CupertinoColors.label.resolveFrom(context))),
+                        subtitle: Text('Play a sound when a code is scanned', style: TextStyle(
+                            color: CupertinoColors.secondaryLabel.resolveFrom(context))),
+                        value: state.beepEnabled,
+                        onChanged: (_) => context.read<SettingsBloc>().add(ToggleBeep()),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: SwitchListTile(
+                        title: Text('Copy to Clipboard', style: TextStyle(
+                            color: CupertinoColors.label.resolveFrom(context))),
+                        subtitle: Text(
+                            'Automatically copy scanned codes to clipboard', style: TextStyle(
+                            color: CupertinoColors.secondaryLabel.resolveFrom(context))),
+                        value: state.copyToClipboard,
+                        onChanged: (_) => context.read<SettingsBloc>().add(ToggleClipboard()),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: ListTile(
+                        title: Text('About', style: TextStyle(
+                            color: CupertinoColors.label.resolveFrom(context))),
+                        trailing: Icon(Icons.arrow_forward_ios, color: CupertinoColors.label
+                            .resolveFrom(context)),
+                        onTap: () => context.go('/about'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
   void _showAddHeaderDialog(BuildContext context) {
+    // This method remains unchanged
     String headerKey = '';
     String headerValue = '';
-
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Add Custom Header'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Header Name',
-                    hintText: 'e.g. Authorization',
-                  ),
-                  onChanged: (value) => headerKey = value,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Header Value',
-                    hintText: 'e.g. Bearer token123',
-                  ),
-                  onChanged: (value) => headerValue = value,
-                ),
-              ],
+      builder: (context) => AlertDialog(
+        title: const Text('Add Custom Header'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: const InputDecoration(labelText: 'Header Name', hintText: 'e.g. Authorization'),
+              onChanged: (value) => headerKey = value,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (headerKey.isNotEmpty && headerValue.isNotEmpty) {
-                    context.read<SettingsBloc>().add(
-                      AddWebhookHeader(headerKey, headerValue),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Add'),
-              ),
-            ],
+            const SizedBox(height: 16),
+            TextField(
+              decoration: const InputDecoration(labelText: 'Header Value', hintText: 'e.g. Bearer token123'),
+              onChanged: (value) => headerValue = value,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              if (headerKey.isNotEmpty && headerValue.isNotEmpty) {
+                context.read<SettingsBloc>().add(AddWebhookHeader(headerKey, headerValue));
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
           ),
+        ],
+      ),
     );
   }
 }
+// --- END OF COMPLETE FILE CODE ---

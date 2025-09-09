@@ -20,7 +20,7 @@ class ScanButton extends StatelessWidget {
                 final scannedCode = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const FullScreenScanner(title: 'Default Scanner'),
+                    builder: (context) => const FullScreenScanner(),
                   ),
                 );
 

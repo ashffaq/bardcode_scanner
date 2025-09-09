@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) =>
-                                        const FullScreenScanner(title: 'Sales Invoice'),
+                                        const FullScreenScanner(),
                                       ),
                                     );
 
@@ -135,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) =>
-                                        const FullScreenScanner(title: 'Delivery Note'),
+                                        const FullScreenScanner(),
                                       ),
                                     );
 

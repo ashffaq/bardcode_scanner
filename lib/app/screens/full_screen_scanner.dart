@@ -8,6 +8,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart';
+import 'package:flutter/foundation.dart'; // for compute
+import 'package:another_flushbar/flushbar.dart';
 
 import '../blocs/settings/settings_bloc.dart';
 import '../blocs/scanner/scanner_bloc.dart';
@@ -55,9 +57,9 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
 
     _cameraController = CameraController(
       cameras.first,
-      ResolutionPreset.high,
+      ResolutionPreset.ultraHigh,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.yuv420,
+      imageFormatGroup: ImageFormatGroup.nv21,
     );
 
     await _cameraController?.initialize();
@@ -69,19 +71,41 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
 
   Future<void> _processCameraImage(CameraImage image) async {
     if (_isProcessing) return;
-
     if (DateTime.now().difference(lastProcessed).inMilliseconds < frameSkipMs) return;
 
     _isProcessing = true;
     lastProcessed = DateTime.now();
 
     try {
+      // Move heavy conversion to background isolate
+      final InputImage? inputImage = await compute(_convertToInputImage, image);
+
+      if (inputImage != null) {
+        final barcodes = await _barcodeScanner?.processImage(inputImage);
+
+        if (barcodes != null && barcodes.isNotEmpty) {
+          final code = barcodes.first.rawValue;
+          if (code != null && code.isNotEmpty) {
+            await _handleScan(code);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in processing image: $e');
+    } finally {
+      _isProcessing = false;
+    }
+  }
+
+  // Runs in background isolate
+  static InputImage? _convertToInputImage(CameraImage image) {
+    try {
       final allBytes = image.planes.fold<Uint8List>(
         Uint8List(0),
             (prev, plane) => Uint8List.fromList([...prev, ...plane.bytes]),
       );
 
-      final inputImage = InputImage.fromBytes(
+      return InputImage.fromBytes(
         bytes: allBytes,
         metadata: InputImageMetadata(
           size: Size(image.width.toDouble(), image.height.toDouble()),
@@ -90,19 +114,8 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
           bytesPerRow: image.planes[0].bytesPerRow,
         ),
       );
-
-      final barcodes = await _barcodeScanner?.processImage(inputImage);
-
-      if (barcodes != null && barcodes.isNotEmpty) {
-        final code = barcodes.first.rawValue;
-        if (code != null && code.isNotEmpty) {
-          await _handleScan(code);
-        }
-      }
     } catch (_) {
-      // ignore
-    } finally {
-      _isProcessing = false;
+      return null;
     }
   }
 
@@ -121,14 +134,23 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
       try {
         await Clipboard.setData(ClipboardData(text: code));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Copied: $code'), duration: const Duration(seconds: 2)),
-          );
+          Flushbar(
+            messageText: Text(
+              "$code",
+              style: TextStyle(fontSize: 18.0, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            duration: const Duration(seconds: 2),
+            margin: const EdgeInsets.all(8),
+            borderRadius: BorderRadius.circular(8),
+            backgroundColor: Colors.black87,
+            flushbarPosition: FlushbarPosition.TOP, // 👈 shows at top
+          ).show(context);
         }
       } catch (_) {}
     }
 
-    context.read<ScannerBloc>().add(ScanCode(code));
+    //context.read<ScannerBloc>().add(ScanCode(code));
 
     if (code.startsWith('MAT-DN')) {
       await _showGatepassPopup(code);
@@ -136,9 +158,7 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
       await _showCommentsPopup(code);
     } else {
       final bool continuous = settings.isContinuousScanning;
-      final int delayMs = ((settings.scanDelay is num ? settings.scanDelay as num : 1.0) * 1000)
-          .round()
-          .clamp(0, 60000);
+      final int delayMs = ((settings.scanDelay as num) * 1000).round().clamp(0, 60000);
 
       if (!continuous) {
         await Future.delayed(const Duration(milliseconds: 150));
@@ -177,8 +197,8 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Enter Gatepass Details',
+                      Text(
+                        'Enter Gatepass Details for $scannedCode',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 16),
@@ -189,8 +209,7 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
                         decoration: const InputDecoration(labelText: 'Gatepass Number'),
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        validator: (value) =>
-                        (value == null || value.isEmpty) ? 'Required' : null,
+                        validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 16),
 
@@ -216,8 +235,7 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
                             "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
                           }
                         },
-                        validator: (value) =>
-                        selectedDate == null ? 'Required' : null,
+                        validator: (value) => selectedDate == null ? 'Required' : null,
                       ),
                       const SizedBox(height: 24),
 
@@ -232,8 +250,19 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
                           ElevatedButton(
                             onPressed: () {
                               if (_formKey.currentState!.validate()) {
-                                print(
-                                    'Submitting: $scannedCode, ${gpNumberController.text}, $selectedDate');
+                                final gpNumber = gpNumberController.text;
+                                final gpDate = selectedDate?.toIso8601String();
+
+                                context.read<ScannerBloc>().add(
+                                  ScanCode(
+                                    scannedCode,
+                                    extra: {
+                                      "gatepass_number": gpNumber,
+                                      "gatepass_date": gpDate,
+                                    },
+                                  ),
+                                );
+
                                 Navigator.of(context).pop();
                               }
                             },
@@ -257,7 +286,6 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
   }
 
   Future<void> _showCommentsPopup(String scannedCode) async {
-    final _formKey = GlobalKey<FormState>();
     final commentsController = TextEditingController();
 
     await showDialog(
@@ -265,7 +293,7 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Add Comments (Optional)'),
+          title: Text('Add Comments (Optional) $scannedCode'),
           content: TextFormField(
             controller: commentsController,
             decoration: const InputDecoration(
@@ -276,16 +304,20 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
             keyboardType: TextInputType.multiline,
           ),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () {
-                final comments = commentsController.text.trim();
-                print('Submitting: $scannedCode, Comments: $comments');
+                context.read<ScannerBloc>().add(
+                  ScanCode(
+                    scannedCode,
+                    extra: {
+                      "comments": commentsController.text.trim(),
+                    },
+                  ),
+                );
                 Navigator.of(context).pop();
               },
-              child: const Text('Submit'),
+              child: const Text('SUBMIT'),
             ),
           ],
         );
@@ -326,33 +358,63 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          CameraPreview(_cameraController!),
-
-          // Transparent floating controls (torch + zoom)
-          Positioned(
-            bottom: 50,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildFloatingIcon(
-                  icon: _torchOn ? Icons.flash_on : Icons.flash_off,
-                  onTap: _toggleTorch,
-                ),
-                const SizedBox(width: 30),
-                _buildFloatingIcon(
-                  icon: Icons.zoom_in,
-                  onTap: _toggleZoom,
-                ),
-              ],
+    return BlocListener<ScannerBloc, ScannerState>(
+      listener: (context, state) {
+        if (state is ScannerFeedback) {
+          Flushbar(
+            messageText: Text(
+              state.message,
+              style: const TextStyle(fontSize: 18.0, color: Colors.white),
+              textAlign: TextAlign.center,
             ),
-          ),
-        ],
+            duration: const Duration(seconds: 2),
+            margin: const EdgeInsets.all(8),
+            borderRadius: BorderRadius.circular(8),
+            backgroundColor: Colors.green.shade700,
+            flushbarPosition: FlushbarPosition.TOP,
+          ).show(context);
+        }
+        if (state is ScannerError) {
+          Flushbar(
+            messageText: Text(
+              state.message,
+              style: const TextStyle(fontSize: 18.0, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            duration: const Duration(seconds: 2),
+            margin: const EdgeInsets.all(8),
+            borderRadius: BorderRadius.circular(8),
+            backgroundColor: Colors.red.shade700,
+            flushbarPosition: FlushbarPosition.TOP,
+          ).show(context);
+        }
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            CameraPreview(_cameraController!),
+
+            // Transparent floating controls (torch + zoom)
+            Positioned(
+              bottom: 50,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildFloatingIcon(
+                    icon: _torchOn ? Icons.flash_on : Icons.flash_off,
+                    onTap: _toggleTorch,
+                  ),
+                  const SizedBox(width: 30),
+                  _buildFloatingIcon(icon: Icons.zoom_in, onTap: _toggleZoom),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -361,10 +423,7 @@ class _FullScreenScannerState extends State<FullScreenScanner> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black45,
-          shape: BoxShape.circle,
-        ),
+        decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
         padding: const EdgeInsets.all(12),
         child: Icon(icon, color: Colors.white, size: 32),
       ),

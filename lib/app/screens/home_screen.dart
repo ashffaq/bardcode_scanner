@@ -29,25 +29,12 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: AppBar(
           title: BlocBuilder<SettingsBloc, SettingsState>(
             builder: (context, state) {
-              return Row(
+              return const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Image(
-                    image: AssetImage('assets/images/logo.png'),
-                    width: 40,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      state.webhookTitle.isNotEmpty
-                          ? state.webhookTitle
-                          : 'AllCodeRelay',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Image(
+                    image: AssetImage('assets/images/afsonlogo.png'),
+                    width: 160,
                   ),
                 ],
               );
@@ -94,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       if (_isExpanded)
                         SizedBox(
-                          height: 260,
+                          height: 250,
                           child: Row(
                             children: [
                               // First card: Sales Invoice -> opens full screen scanner
@@ -119,29 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     // TODO: change `.lastScanValue` to your provider's property:
                                     // final scanned = provider.lastScanValue;
                                     // if (scanned != null) { show snackbar or handle it }
-                                  },
-                                  child: const ScanButton(),
-                                ),
-                              ),
-
-                              const SizedBox(width: 16),
-
-                              // Second card: Delivery Note -> same full screen scanner for now
-                              Expanded(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                        const FullScreenScanner(),
-                                      ),
-                                    );
-
-                                    // same optional provider check as above
-                                    final provider = Provider.of<ScanningStateProvider>(context, listen: false);
-                                    // TODO: check provider for the latest scanned value here if needed
                                   },
                                   child: const ScanButton(),
                                 ),

@@ -10,7 +10,9 @@ abstract class ScannerEvent {}
 
 class ScanCode extends ScannerEvent {
   final String code;
-  ScanCode(this.code);
+  final Map<String, dynamic>? extra;  // optional extra data
+
+  ScanCode(this.code, {this.extra});
 }
 
 class LoadScans extends ScannerEvent {}
@@ -23,6 +25,11 @@ class UpdateScan extends ScannerEvent {
 class DeleteScan extends ScannerEvent {
   final int id;
   DeleteScan(this.id);
+}
+
+class ScannerFeedback extends ScannerState {
+  final String message;
+  ScannerFeedback(this.message);
 }
 
 class DeleteAllScans extends ScannerEvent {}
@@ -49,8 +56,8 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
   final SettingsBloc _settingsBloc;
 
   ScannerBloc({required SettingsBloc settingsBloc})
-    : _settingsBloc = settingsBloc,
-      super(ScannerInitial()) {
+      : _settingsBloc = settingsBloc,
+        super(ScannerInitial()) {
     on<ScanCode>(_onScanCode);
     on<LoadScans>(_onLoadScans);
     on<UpdateScan>(_onUpdateScan);
@@ -91,6 +98,8 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
 
       final Map<String, String> bodyMap = {
         'doc_name': event.code,
+        // spread extra key-values if provided
+        ...?event.extra?.map((k, v) => MapEntry(k, v.toString())),
       };
 
       final String encodedBody = bodyMap.entries
@@ -114,6 +123,7 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
         );
         await _db.create(scan);
         final scans = await _db.getAllScans();
+        emit(ScannerFeedback("✅ $messageFromServer"));
         emit(ScannerSuccess(scans));
       } else {
         emit(ScannerError('Server error: ${response.statusCode} - ${response.body}'));
@@ -124,7 +134,9 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
         );
         await _db.create(scan);
         final scans = await _db.getAllScans();
+        emit(ScannerFeedback("❌ Failed: ${response.statusCode}"));
         await Future.delayed(const Duration(seconds: 2));
+
         emit(ScannerSuccess(scans));
       }
     } catch (e) {
@@ -137,6 +149,7 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
       await _db.create(scan);
       final scans = await _db.getAllScans();
       await Future.delayed(const Duration(seconds: 2));
+
       emit(ScannerSuccess(scans));
     }
   }
@@ -152,9 +165,9 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
   }
 
   Future<void> _onUpdateScan(
-    UpdateScan event,
-    Emitter<ScannerState> emit,
-  ) async {
+      UpdateScan event,
+      Emitter<ScannerState> emit,
+      ) async {
     emit(ScannerLoading());
     try {
       await _db.update(event.scan);
@@ -166,9 +179,9 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
   }
 
   Future<void> _onDeleteScan(
-    DeleteScan event,
-    Emitter<ScannerState> emit,
-  ) async {
+      DeleteScan event,
+      Emitter<ScannerState> emit,
+      ) async {
     emit(ScannerLoading());
     try {
       await _db.delete(event.id);
@@ -180,9 +193,9 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
   }
 
   Future<void> _onDeleteAllScans(
-    DeleteAllScans event,
-    Emitter<ScannerState> emit,
-  ) async {
+      DeleteAllScans event,
+      Emitter<ScannerState> emit,
+      ) async {
     emit(ScannerLoading());
     try {
       await _db.deleteAll();

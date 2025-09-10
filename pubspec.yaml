@@ -1,5 +1,5 @@
 name: allcoderelay
-description: "Universal code scanner with webhook integration"
+description: "Afson Seeds BarCode Scanner"
 publish_to: "none"
 version: 1.0.0+3
 
@@ -12,6 +12,9 @@ dependencies:
         sdk: flutter
     camera: ^0.11.2
     google_mlkit_barcode_scanning: ^0.14.1
+    google_mlkit_commons: ^0.11.0
+    foundation: ^0.0.5
+    another_flushbar: ^1.12.32
     audioplayers: ^5.2.1
     cupertino_icons: ^1.0.8
     mobile_scanner: ^3.5.6 # For 2D/3D code scanning
@@ -27,6 +30,8 @@ dependencies:
     url_launcher: ^6.2.4
     app_links: ^6.4.0
     wakelock_plus: ^1.2.5
+    flutter_native_splash: ^2.4.0
+    flutter_launcher_icons: ^0.13.1
 
 
     provider: any
@@ -40,3 +45,20 @@ flutter:
     assets:
         - assets/images/
         - assets/sounds/
+
+flutter_native_splash:
+    color: "#ffffff"
+    image: assets/images/afsonlogo.png
+    android: true
+    ios: true
+
+    android_12:
+        image: assets/images/afsonlogo.png
+        icon_background_color: "#ffffff"
+
+flutter_launcher_icons:
+    android: true
+    ios: true
+    image_path: "assets/images/appicon.png"   # your logo file
+    adaptive_icon_background: "#ffffff"   # for Android adaptive icons
+    adaptive_icon_foreground: "assets/images/appicon.png"

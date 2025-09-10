@@ -82,7 +82,7 @@ class AboutScreen extends StatelessWidget {
                       subtitle: const Text('View online documentation'),
                       onTap: () {
                         final docUri = Uri.parse(
-                          'https://grapph.com/allcoderelay/readme.html',
+                          'https://afsonseeds.com/barcodescanner/readme.html',
                         );
                         launchUrl(docUri, mode: LaunchMode.platformDefault);
                       },
@@ -104,11 +104,11 @@ class AboutScreen extends StatelessWidget {
                     ListTile(
                       leading: const Icon(Icons.email),
                       title: const Text('Contact Us'),
-                      subtitle: const Text('allcoderelay@grapph.com'),
+                      subtitle: const Text('barcodescanner@afsonseeds.com'),
                       onTap: () {
                         final emailUri = Uri(
                           scheme: 'mailto',
-                          path: 'allcoderelay@grapph.com',
+                          path: 'barcodescanner@afsonseeds.com',
                           queryParameters: {
                             'subject': 'AllCodeRelay Integration Inquiry',
                           },

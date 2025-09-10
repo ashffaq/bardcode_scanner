@@ -9,7 +9,7 @@ import java.util.Properties
 import java.io.FileInputStream
 
 android {
-    namespace = "com.grapph.allcoderelay"
+    namespace = "com.afsonseeds.barcodescanner"
     ndkVersion = "27.0.12077973"
     compileSdk = flutter.compileSdkVersion
 
@@ -23,11 +23,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.grapph.allcoderelay"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        applicationId = "com.afsonseeds.barcodescanner"
+        minSdk = flutter.minSdkVersion        // Android 5.0+
+        targetSdk = 34     // Android 14 (Play Store requirement)
+        versionCode = 1
+        versionName = "1.0"
     }
 
     signingConfigs {

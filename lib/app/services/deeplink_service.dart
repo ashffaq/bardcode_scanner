@@ -43,7 +43,7 @@ class DeepLinkService {
 
     try {
       // Confirm it's the correct scheme
-      if (uri.scheme == 'allcoderelay') {
+      if (uri.scheme == 'barcodescanner') {
         // Extract query parameters
         Map<String, String> params = uri.queryParameters;
 

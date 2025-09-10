@@ -43,7 +43,7 @@
         </intent>
     </queries>
     <application
-        android:label="AfsonScanner"
+        android:label="Afson Barcode Scanner"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

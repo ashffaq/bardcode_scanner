@@ -3,7 +3,7 @@ import 'dart:developer' as developer;
 
 class NfcPlatformService {
   static const MethodChannel _channel = MethodChannel(
-    'com.grapph.allcoderelay/nfc',
+    'com.afsonseeds.barcodescanner/nfc',
   );
 
   Future<bool> isAvailable() async {

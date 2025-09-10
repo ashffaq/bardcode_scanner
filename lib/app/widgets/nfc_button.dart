@@ -1,4 +1,4 @@
-import 'package:allcoderelay/app/providers/scanning_state_provider.dart';
+import 'package:barcodescanner/app/providers/scanning_state_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import for clipboard

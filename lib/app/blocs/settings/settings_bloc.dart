@@ -74,7 +74,7 @@ class SettingsState {
   final String apiSecret;
 
   SettingsState({
-    this.webhookUrl = 'https://n8n.grapph.com/webhook/allcoderelay',
+    this.webhookUrl = 'https://n8n.afsonseeds.com/webhook/barcodescanner',
     this.webhookTitle = 'Default Webhook',
     this.webhookHeaders = const {'Content-Type': 'application/json'},
     this.isDarkMode = false,
@@ -210,7 +210,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     try {
       final uri = Uri.parse(event.code);
-      if (uri.scheme == 'allcoderelay' &&
+      if (uri.scheme == 'barcodescanner' &&
           uri.host == 'setwebhookurl' &&
           uri.queryParameters.containsKey('url')) {
         final newUrl = uri.queryParameters['url']!;
